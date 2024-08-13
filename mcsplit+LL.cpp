@@ -534,7 +534,6 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
         incumbent = current;
         best_count = cut_branches + 1;
         calls_for_optimal = nodes;
-        bestfind = clock();
         duration = std::chrono::steady_clock::now() - START;
 //        if (!arguments.quiet) cout << "Incumbent size: " << incumbent.size() << endl;
     }
