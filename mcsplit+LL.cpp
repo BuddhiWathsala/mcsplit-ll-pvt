@@ -523,10 +523,7 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
         vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
         vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal)
 {
-    if(arguments.timeout && double(clock() - start) / CLOCKS_PER_SEC > arguments.timeout)
-    {
-        // cout <<"time out" <<endl;
-        abort_due_to_timeout = true;
+    if (abort_due_to_timeout) {
         return;
     }
 
