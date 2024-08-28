@@ -743,7 +743,7 @@ int main(int argc, char** argv) {
         });
     }
 //      auto start = std::chrono::steady_clock::now();
-    start=clock();
+//    start=clock();
     START = std::chrono::steady_clock::now();
     vector<int> g0_deg = calculate_degrees(g0);
     vector<int> g1_deg = calculate_degrees(g1);
