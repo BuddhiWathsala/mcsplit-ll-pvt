@@ -273,11 +273,11 @@ bool check_sol(const Graph &g0, const Graph &g1, const vector<VtxPair> &solution
 //    return true;
 }
 
-const int THRESHOLD = 16;
+const int THRESHOLD = 20;
 const int boxes = 2;
 const int index_partition_size = 2;
 const int best_partition_ub = THRESHOLD;
-const int best_partition_diff = 3;
+const int best_partition_diff = 5;
 int MAX_COUNT = 100;
 int MAX_SUCCESS = 30;
 int called_count = 0;
@@ -435,7 +435,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
         }
         bd.is_valid = true;
     }
-    if (count_enabled) {
+    if (true) {
         if (bound <= incumbent_size) {
             success_count++;
         }
@@ -1028,6 +1028,6 @@ int main(int argc, char** argv) {
 //         cout << "TIMEOUT" << endl;
     cout << solution.size() << ", " << check_sol(g0, g1, solution) << ", " << duration.count() << ", "
          << time_elapsed.count() << ", " << nodes << ", " << calls_for_optimal << ", " << cut_branches << ", " <<
-         aborted << endl;
+         success_count << ", " << called_count << ", " << aborted << endl;
 }
 
