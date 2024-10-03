@@ -273,28 +273,32 @@ bool check_sol(const Graph &g0, const Graph &g1, const vector<VtxPair> &solution
 //    return true;
 }
 
-const int THRESHOLD = 20;
+const int THRESHOLD = 16;
 const int boxes = 2;
 const int index_partition_size = 2;
 const int best_partition_ub = THRESHOLD;
-const int best_partition_diff = 3;
+const int best_partition_diff = 10;
 int MAX_COUNT = 100;
 int MAX_SUCCESS = 30;
 int called_count = 0;
 int success_count = 0;
 bool bound_enabled = true;
 bool count_enabled = true;
+
 const int ROWS = THRESHOLD - index_partition_size + 2;
 long double array[ROWS*boxes];
 int s_degrees[best_partition_ub];
+
 void initializeArray() {
     for (auto & i : array) {
         i = 1.0;
     }
 }
+
 unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &domains,
                         const vector<int> &left, const vector<int> &right, const vector<VtxPair> &incumbent,
                         const vector<VtxPair> &current) {
+
     unsigned int incumbent_size = incumbent.size();
     unsigned int current_size = current.size();
     unsigned int mcsplit_bound = current_size;
@@ -317,7 +321,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
         }
         mcsplit_bound += min_len;
     }
-    if (mcsplit_bound <= incumbent_size || (possible_reductions < 1) || ((mcsplit_bound - possible_reductions) > incumbent_size)) {
+    if (mcsplit_bound <= incumbent_size || (possible_reductions < 0.5) || ((mcsplit_bound - possible_reductions) > incumbent_size)) {
         return mcsplit_bound;
     }
     if (count_enabled && called_count == MAX_COUNT) {
@@ -435,7 +439,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
         }
         bd.is_valid = true;
     }
-    if (true) {
+    if (count_enabled) {
         if (bound <= incumbent_size) {
             success_count++;
         }
