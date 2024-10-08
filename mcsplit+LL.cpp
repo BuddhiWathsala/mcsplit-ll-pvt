@@ -339,21 +339,21 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             bound += bd.size;
             continue;
         }
-        if (bd.left_len == 2 && bd.right_len == 2) {
-            if (g0.adjmat[left[bd.l]][left[bd.l+1]] != g1.adjmat[right[bd.r]][right[bd.r+1]]) {
-                bound += 1;
-                bd.size = 1;
-                int index = (max_len - index_partition_size)*index_partition_size;
-                array[index] = (array[index] + 1) / 2;
-            } else {
-                bd.size = 2;
-                int index = (max_len - index_partition_size)*index_partition_size;
-                array[index] = (array[index]) / 2;
-                bound += 2;
-            }
-            bd.is_valid = true;
-            continue;
-        }
+//        if (bd.left_len == 2 && bd.right_len == 2) {
+//            if (g0.adjmat[left[bd.l]][left[bd.l+1]] != g1.adjmat[right[bd.r]][right[bd.r+1]]) {
+//                bound += 1;
+//                bd.size = 1;
+//                int index = (max_len - index_partition_size)*index_partition_size;
+//                array[index] = (array[index] + 1) / 2;
+//            } else {
+//                bd.size = 2;
+//                int index = (max_len - index_partition_size)*index_partition_size;
+//                array[index] = (array[index]) / 2;
+//                bound += 2;
+//            }
+//            bd.is_valid = true;
+//            continue;
+//        }
         if (min_len > 2 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
             int s_len, b_len;
             int val = min_len;
