@@ -273,11 +273,11 @@ bool check_sol(const Graph &g0, const Graph &g1, const vector<VtxPair> &solution
 //    return true;
 }
 
-const int THRESHOLD = 16;
+const int THRESHOLD = 20;
 const int boxes = 2;
 const int index_partition_size = 2;
 const int best_partition_ub = THRESHOLD;
-const int best_partition_diff = 3;
+const int best_partition_diff = 10;
 int MAX_COUNT = 100;
 int MAX_SUCCESS = 30;
 int called_count = 0;
@@ -303,12 +303,12 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
     unsigned int current_size = current.size();
     unsigned int mcsplit_bound = current_size;
     long double possible_reductions = 0;
-    if (!bound_enabled) {
-        for (const Bidomain &bd: domains) {
-            mcsplit_bound += std::min(bd.left_len, bd.right_len);
-        }
-        return mcsplit_bound;
-    }
+//    if (!bound_enabled) {
+//        for (const Bidomain &bd: domains) {
+//            mcsplit_bound += std::min(bd.left_len, bd.right_len);
+//        }
+//        return mcsplit_bound;
+//    }
     for (const Bidomain &bd: domains) {
         const auto [min_len, max_len] = std::minmax(bd.left_len, bd.right_len);
         const int size_diff = std::abs(bd.left_len - bd.right_len);
@@ -324,13 +324,13 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
     if (mcsplit_bound <= incumbent_size || (possible_reductions < 0.5) || ((mcsplit_bound - possible_reductions) > incumbent_size)) {
         return mcsplit_bound;
     }
-    if (count_enabled && called_count == MAX_COUNT) {
-        count_enabled = false;
-        if (success_count < MAX_SUCCESS) {
-            bound_enabled = false;
-        }
-        return mcsplit_bound;
-    }
+//    if (count_enabled && called_count == MAX_COUNT) {
+//        count_enabled = false;
+//        if (success_count < MAX_SUCCESS) {
+//            bound_enabled = false;
+//        }
+//        return mcsplit_bound;
+//    }
     unsigned int bound = current_size;
     for (Bidomain &bd: domains) {
         const auto [min_len, max_len] = std::minmax(bd.left_len, bd.right_len);
@@ -339,21 +339,21 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             bound += bd.size;
             continue;
         }
-//        if (bd.left_len == 2 && bd.right_len == 2) {
-//            if (g0.adjmat[left[bd.l]][left[bd.l+1]] != g1.adjmat[right[bd.r]][right[bd.r+1]]) {
-//                bound += 1;
-//                bd.size = 1;
-//                int index = (max_len - index_partition_size)*index_partition_size;
-//                array[index] = (array[index] + 1) / 2;
-//            } else {
-//                bd.size = 2;
-//                int index = (max_len - index_partition_size)*index_partition_size;
-//                array[index] = (array[index]) / 2;
-//                bound += 2;
-//            }
-//            bd.is_valid = true;
-//            continue;
-//        }
+        if (bd.left_len == 2 && bd.right_len == 2) {
+            if (g0.adjmat[left[bd.l]][left[bd.l+1]] != g1.adjmat[right[bd.r]][right[bd.r+1]]) {
+                bound += 1;
+                bd.size = 1;
+                int index = (max_len - index_partition_size)*index_partition_size;
+                array[index] = (array[index] + 1) / 2;
+            } else {
+                bd.size = 2;
+                int index = (max_len - index_partition_size)*index_partition_size;
+                array[index] = (array[index]) / 2;
+                bound += 2;
+            }
+            bd.is_valid = true;
+            continue;
+        }
         if (min_len > 2 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
             int s_len, b_len;
             int val = min_len;
