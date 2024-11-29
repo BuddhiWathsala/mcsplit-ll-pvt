@@ -360,7 +360,6 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             int index = (max_len - index_partition_size)*index_partition_size + (size_diff > 2 ? 1 : 0);
             int s_connections = 0, b_connections = 0; // small and big side
 //            std::vector<int> s_degrees(min_len);
-            std::fill(s_degrees, s_degrees + min_len, 0);
             if (bd.left_len <= bd.right_len) {
                 s_len = bd.left_len;
                 b_len = bd.right_len;
@@ -369,8 +368,6 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                     for (int j = i + 1; j < s_len; ++j) {
                         const int v2 = left[bd.l + j];
                         if (g0.adjmat[v1][v2]) {
-                            s_degrees[i]++;
-                            s_degrees[j]++;
                             s_connections++; // minor trick: we only count undirected edges (everything divided by 2)
                         }
                     }
@@ -393,8 +390,6 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                     for (int j = i + 1; j < s_len; ++j) {
                         const int v2 = right[bd.r + j];
                         if (g1.adjmat[v1][v2]) {
-                            s_degrees[i]++;
-                            s_degrees[j]++;
                             s_connections++; // minor trick: we only count undirected edges (everything divided by 2)
                         }
                     }
@@ -412,23 +407,8 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             // compute non-connections from connections
             int s_non_connections = s_len * (s_len - 1) / 2 - s_connections;
             int b_non_connections = b_len * (b_len - 1) / 2 - b_connections;
-            // optimization starts here
-            int diff = s_connections - b_connections;
-            if (diff > 0) {
-//                std::sort(s_degrees.begin(), s_degrees.end());
-                std::sort(s_degrees, s_degrees+s_len);
-                diff -= s_degrees[--val];
-                while (diff > 0)
-                    diff -= s_degrees[--val];
-            } else {
-                diff = s_non_connections - b_non_connections;
-                if (diff > 0) {
-//                    std::sort(s_degrees.begin(), s_degrees.end(), std::greater<>());
-                    std::sort(s_degrees, s_degrees+s_len, std::greater<>());
-                    diff -= s_len - s_degrees[--val];
-                    while (diff > 0)
-                        diff -= s_len - s_degrees[--val];
-                }
+            if ((s_connections > b_connections) || (s_non_connections > b_non_connections)) {
+                --val;
             }
             array[index] = (array[index] + min_len - val) / 2;
             bound += val;
