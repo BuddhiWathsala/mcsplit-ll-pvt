@@ -35,4 +35,4 @@ link_directories(${ARGP_LIBRARY_DIR})
 
 #add_executable(Boost main.cpp graph.cpp graph.h modular.cpp modular.h primes.h search_ops.cpp search_ops.h structs.h utils.cpp utils.h)
 #add_executable(Argp main.cpp graph.cpp graph.h modular.cpp modular.h primes.h search_ops.cpp search_ops.h structs.h utils.cpp utils.h)
-add_executable(main mcsplit+LL.cpp graph.cpp graph.h)
+add_executable(main mcsplit+LL.cpp graph.cpp graph.h simd.h simd.cpp)

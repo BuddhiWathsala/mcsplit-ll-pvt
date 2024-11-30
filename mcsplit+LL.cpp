@@ -19,6 +19,7 @@
 
 
 #include "graph.h"
+#include "simd.h"
 
 #include <algorithm>
 #include <numeric>
@@ -273,7 +274,7 @@ bool check_sol(const Graph &g0, const Graph &g1, const vector<VtxPair> &solution
 //    return true;
 }
 
-const int THRESHOLD = 20;
+const int THRESHOLD = 16;
 const int boxes = 2;
 const int index_partition_size = 2;
 const int best_partition_ub = THRESHOLD;
@@ -360,7 +361,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             int index = (max_len - index_partition_size)*index_partition_size + (size_diff > 2 ? 1 : 0);
             int s_connections = 0, b_connections = 0; // small and big side
 //            std::vector<int> s_degrees(min_len);
-            std::fill(s_degrees, s_degrees + min_len, 0);
+            std::fill(s_degrees, s_degrees + min_len, INT_MAX);
             if (bd.left_len <= bd.right_len) {
                 s_len = bd.left_len;
                 b_len = bd.right_len;
@@ -416,7 +417,8 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             int diff = s_connections - b_connections;
             if (diff > 0) {
 //                std::sort(s_degrees.begin(), s_degrees.end());
-                std::sort(s_degrees, s_degrees+s_len);
+//                std::sort(s_degrees, s_degrees+s_len);
+                simd_sort_16_elements_forward(s_degrees);
                 diff -= s_degrees[--val];
                 while (diff > 0)
                     diff -= s_degrees[--val];
@@ -424,7 +426,8 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                 diff = s_non_connections - b_non_connections;
                 if (diff > 0) {
 //                    std::sort(s_degrees.begin(), s_degrees.end(), std::greater<>());
-                    std::sort(s_degrees, s_degrees+s_len, std::greater<>());
+//                    std::sort(s_degrees, s_degrees+s_len, std::greater<>());
+                    simd_sort_16_elements_reverse(s_degrees);
                     diff -= s_len - s_degrees[--val];
                     while (diff > 0)
                         diff -= s_len - s_degrees[--val];
