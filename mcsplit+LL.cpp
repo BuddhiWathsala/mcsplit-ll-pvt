@@ -312,7 +312,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
     for (const Bidomain &bd: domains) {
         const auto [min_len, max_len] = std::minmax(bd.left_len, bd.right_len);
         const int size_diff = std::abs(bd.left_len - bd.right_len);
-        if (min_len > 2 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
+        if (min_len > 3 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
             if (bd.is_valid) {
                 possible_reductions = min_len - bd.size;
             } else {
@@ -354,7 +354,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             bd.is_valid = true;
             continue;
         }
-        if (min_len > 2 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
+        if (min_len > 3 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
             int s_len, b_len;
             int val = min_len;
             int index = (max_len - index_partition_size)*index_partition_size + (size_diff > 2 ? 1 : 0);
