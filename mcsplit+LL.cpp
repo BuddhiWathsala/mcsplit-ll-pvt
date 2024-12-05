@@ -197,6 +197,7 @@ unsigned long long cut_branches = 0;
 unsigned long long best_count = 0;
 unsigned long long calls_for_optimal = 0;
 std::chrono::duration<double> duration;
+std::chrono::duration<double> bound_duration;
 
 /*******************************************************************************
                                  MCS functions
@@ -360,20 +361,22 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             int index = (max_len - index_partition_size)*index_partition_size + (size_diff > 2 ? 1 : 0);
             int s_connections = 0, b_connections = 0; // small and big side
 //            std::vector<int> s_degrees(min_len);
-            std::fill(s_degrees, s_degrees + min_len, 0);
+            std::fill_n(s_degrees, min_len, 0);
             if (bd.left_len <= bd.right_len) {
                 s_len = bd.left_len;
                 b_len = bd.right_len;
                 for (int i = 0; i < s_len; ++i) {
                     const int v1 = left[bd.l +i]; // using references can only make things more expensive for small data types
+                    int local_s_connections = 0;
                     for (int j = i + 1; j < s_len; ++j) {
                         const int v2 = left[bd.l + j];
                         if (g0.adjmat[v1][v2]) {
-                            s_degrees[i]++;
                             s_degrees[j]++;
-                            s_connections++; // minor trick: we only count undirected edges (everything divided by 2)
+                            local_s_connections++;
                         }
                     }
+                    s_degrees[i] += local_s_connections;
+                    s_connections += local_s_connections;
                 }
                 // no need to compute degrees for the bigger side
                 for (int i = 0; i < b_len; ++i) {
@@ -388,16 +391,17 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                 s_len = bd.right_len;
                 b_len = bd.left_len;
                 for (int i = 0; i < s_len; ++i) {
-                    const int v1 = right[bd.r +
-                                         i]; // using references can only make things more expensive for small data types
+                    const int v1 = right[bd.r + i]; // using references can only make things more expensive for small data types
+                    int local_s_connections = 0;
                     for (int j = i + 1; j < s_len; ++j) {
                         const int v2 = right[bd.r + j];
                         if (g1.adjmat[v1][v2]) {
-                            s_degrees[i]++;
                             s_degrees[j]++;
-                            s_connections++; // minor trick: we only count undirected edges (everything divided by 2)
+                            local_s_connections++;
                         }
                     }
+                    s_degrees[i] += local_s_connections;
+                    s_connections += local_s_connections;
                 }
                 // no need to compute degrees for the bigger side
                 for (int i = 0; i < b_len; ++i) {
@@ -409,9 +413,6 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                     }
                 }
             }
-            // compute non-connections from connections
-            int s_non_connections = s_len * (s_len - 1) / 2 - s_connections;
-            int b_non_connections = b_len * (b_len - 1) / 2 - b_connections;
             // optimization starts here
             int diff = s_connections - b_connections;
             if (diff > 0) {
@@ -421,6 +422,9 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                 while (diff > 0)
                     diff -= s_degrees[--val];
             } else {
+                // compute non-connections from connections
+                int s_non_connections = s_len * (s_len - 1) / 2 - s_connections;
+                int b_non_connections = b_len * (b_len - 1) / 2 - b_connections;
                 diff = s_non_connections - b_non_connections;
                 if (diff > 0) {
 //                    std::sort(s_degrees.begin(), s_degrees.end(), std::greater<>());
@@ -723,8 +727,9 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
     //if (arguments.verbose) show(current, domains, left, right);
 
 
-
+    auto bound_calc_start = std::chrono::steady_clock::now();
     unsigned int bound = calc_bound(g0, g1, domains, left, right, incumbent, current);//计算相连和不相连同构数的最大可能加上当前已经同构的点数
+    bound_duration += std::chrono::steady_clock::now() - bound_calc_start;
     if (bound <= incumbent.size() || bound < matching_size_goal) {//剪枝
         cut_branches++;
         return;
@@ -929,6 +934,7 @@ int main(int argc, char** argv) {
 //      auto start = std::chrono::steady_clock::now();
 //    start=clock();
     START = std::chrono::steady_clock::now();
+    bound_duration = std::chrono::duration<double>(0);
     vector<int> g0_deg = calculate_degrees(g0);
     vector<int> g1_deg = calculate_degrees(g1);
 
@@ -1030,8 +1036,10 @@ int main(int argc, char** argv) {
 // #endif
 //     if (aborted)
 //         cout << "TIMEOUT" << endl;
+    double bound_calc_percentage = bound_duration.count()/arguments.timeout;
+
     cout << solution.size() << ", " << check_sol(g0, g1, solution) << ", " << duration.count() << ", "
          << time_elapsed.count() << ", " << nodes << ", " << calls_for_optimal << ", " << cut_branches << ", " <<
-         success_count << ", " << called_count << ", " << aborted << endl;
+         success_count << ", " << called_count << ", " << bound_calc_percentage << ", " << aborted << endl;
 }
 
