@@ -322,7 +322,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
         }
         mcsplit_bound += min_len;
     }
-    if (mcsplit_bound <= incumbent_size || (possible_reductions < 0.5) || ((mcsplit_bound - possible_reductions) > incumbent_size)) {
+    if (mcsplit_bound <= incumbent_size || (mcsplit_bound - incumbent_size > 3) || (possible_reductions < 0.5) || ((mcsplit_bound - possible_reductions) > incumbent_size)) {
         return mcsplit_bound;
     }
 //    if (count_enabled && called_count == MAX_COUNT) {
