@@ -274,7 +274,15 @@ bool check_sol(const Graph &g0, const Graph &g1, const vector<VtxPair> &solution
 //    return true;
 }
 
-const int THRESHOLD = 20;
+int calc_bound1(const vector<Bidomain>& domains) {
+    int bound = 0;
+    for (const Bidomain &bd : domains) {
+        bound += std::min(bd.left_len, bd.right_len);
+    }
+    return bound;
+}
+
+const int THRESHOLD = 16;
 const int boxes = 2;
 const int index_partition_size = 2;
 const int best_partition_ub = THRESHOLD;
@@ -296,14 +304,6 @@ void initializeArray() {
     }
 }
 
-int calc_bound1(const vector<Bidomain>& domains) {
-    int bound = 0;
-    for (const Bidomain &bd : domains) {
-        bound += std::min(bd.left_len, bd.right_len);
-    }
-    return bound;
-}
-
 unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &domains,
                         const vector<int> &left, const vector<int> &right, const vector<VtxPair> &incumbent,
                         const vector<VtxPair> &current) {
@@ -312,16 +312,16 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
     unsigned int current_size = current.size();
     unsigned int mcsplit_bound = current_size;
     long double possible_reductions = 0;
-//    if (!bound_enabled) {
-//        for (const Bidomain &bd: domains) {
-//            mcsplit_bound += std::min(bd.left_len, bd.right_len);
-//        }
-//        return mcsplit_bound;
-//    }
+    if (!bound_enabled) {
+        for (const Bidomain &bd: domains) {
+            mcsplit_bound += std::min(bd.left_len, bd.right_len);
+        }
+        return mcsplit_bound;
+    }
     for (const Bidomain &bd: domains) {
         const auto [min_len, max_len] = std::minmax(bd.left_len, bd.right_len);
         const int size_diff = std::abs(bd.left_len - bd.right_len);
-        if (min_len > 3 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
+        if (min_len > 2 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
             if (bd.is_valid) {
                 possible_reductions = min_len - bd.size;
             } else {
@@ -330,17 +330,16 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
         }
         mcsplit_bound += min_len;
     }
-    int bound_diff = mcsplit_bound - incumbent_size;
-    if (mcsplit_bound <= incumbent_size || (bound_diff == 1) || (bound_diff > 3) || (possible_reductions < 0.5) || ((mcsplit_bound - possible_reductions) > incumbent_size)) {
+    if (mcsplit_bound <= incumbent_size || (possible_reductions < 0.5) || ((mcsplit_bound - possible_reductions) > incumbent_size)) {
         return mcsplit_bound;
     }
-//    if (count_enabled && called_count == MAX_COUNT) {
-//        count_enabled = false;
-//        if (success_count < MAX_SUCCESS) {
-//            bound_enabled = false;
-//        }
-//        return mcsplit_bound;
-//    }
+    if (count_enabled && called_count == MAX_COUNT) {
+        count_enabled = false;
+        if (success_count < MAX_SUCCESS) {
+            bound_enabled = false;
+        }
+        return mcsplit_bound;
+    }
     unsigned int bound = current_size;
     for (Bidomain &bd: domains) {
         const auto [min_len, max_len] = std::minmax(bd.left_len, bd.right_len);
@@ -364,28 +363,26 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             bd.is_valid = true;
             continue;
         }
-        if (min_len > 3 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
+        if (min_len > 2 && max_len <= best_partition_ub && size_diff <= best_partition_diff) {
             int s_len, b_len;
             int val = min_len;
             int index = (max_len - index_partition_size)*index_partition_size + (size_diff > 2 ? 1 : 0);
             int s_connections = 0, b_connections = 0; // small and big side
 //            std::vector<int> s_degrees(min_len);
-            std::fill_n(s_degrees, min_len, 0);
+            std::fill(s_degrees, s_degrees + min_len, 0);
             if (bd.left_len <= bd.right_len) {
                 s_len = bd.left_len;
                 b_len = bd.right_len;
                 for (int i = 0; i < s_len; ++i) {
                     const int v1 = left[bd.l +i]; // using references can only make things more expensive for small data types
-                    int local_s_connections = 0;
                     for (int j = i + 1; j < s_len; ++j) {
                         const int v2 = left[bd.l + j];
                         if (g0.adjmat[v1][v2]) {
+                            s_degrees[i]++;
                             s_degrees[j]++;
-                            local_s_connections++;
+                            s_connections++; // minor trick: we only count undirected edges (everything divided by 2)
                         }
                     }
-                    s_degrees[i] += local_s_connections;
-                    s_connections += local_s_connections;
                 }
                 // no need to compute degrees for the bigger side
                 for (int i = 0; i < b_len; ++i) {
@@ -400,17 +397,16 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                 s_len = bd.right_len;
                 b_len = bd.left_len;
                 for (int i = 0; i < s_len; ++i) {
-                    const int v1 = right[bd.r + i]; // using references can only make things more expensive for small data types
-                    int local_s_connections = 0;
+                    const int v1 = right[bd.r +
+                                         i]; // using references can only make things more expensive for small data types
                     for (int j = i + 1; j < s_len; ++j) {
                         const int v2 = right[bd.r + j];
                         if (g1.adjmat[v1][v2]) {
+                            s_degrees[i]++;
                             s_degrees[j]++;
-                            local_s_connections++;
+                            s_connections++; // minor trick: we only count undirected edges (everything divided by 2)
                         }
                     }
-                    s_degrees[i] += local_s_connections;
-                    s_connections += local_s_connections;
                 }
                 // no need to compute degrees for the bigger side
                 for (int i = 0; i < b_len; ++i) {
@@ -422,6 +418,9 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                     }
                 }
             }
+            // compute non-connections from connections
+            int s_non_connections = s_len * (s_len - 1) / 2 - s_connections;
+            int b_non_connections = b_len * (b_len - 1) / 2 - b_connections;
             // optimization starts here
             int diff = s_connections - b_connections;
             if (diff > 0) {
@@ -431,9 +430,6 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                 while (diff > 0)
                     diff -= s_degrees[--val];
             } else {
-                // compute non-connections from connections
-                int s_non_connections = s_len * (s_len - 1) / 2 - s_connections;
-                int b_non_connections = b_len * (b_len - 1) / 2 - b_connections;
                 diff = s_non_connections - b_non_connections;
                 if (diff > 0) {
 //                    std::sort(s_degrees.begin(), s_degrees.end(), std::greater<>());
