@@ -287,18 +287,12 @@ bool bound_enabled = true;
 bool count_enabled = true;
 
 const int ROWS = THRESHOLD - index_partition_size + 2;
-long double array[ROWS*boxes];
-int s_degrees[best_partition_ub];
-
-void initializeArray() {
-    for (auto & i : array) {
-        i = 1.0;
-    }
-}
+const int ARRAY_SIZE = ROWS*boxes;
 
 unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &domains,
                         const vector<int> &left, const vector<int> &right, const vector<VtxPair> &incumbent,
-                        const vector<VtxPair> &current) {
+                        const vector<VtxPair> &current, std::array<long double, ARRAY_SIZE> &array,
+                        std::array<int, best_partition_ub> &s_degrees) {
 
     unsigned int incumbent_size = incumbent.size();
     unsigned int current_size = current.size();
@@ -362,7 +356,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             int index = (max_len - index_partition_size)*index_partition_size + (size_diff > 2 ? 1 : 0);
             int s_connections = 0, b_connections = 0; // small and big side
 //            std::vector<int> s_degrees(min_len);
-            std::fill_n(s_degrees, min_len, 0);
+            std::fill_n(s_degrees.begin(), min_len, 0);
             if (bd.left_len <= bd.right_len) {
                 s_len = bd.left_len;
                 b_len = bd.right_len;
@@ -418,7 +412,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
             int diff = s_connections - b_connections;
             if (diff > 0) {
 //                std::sort(s_degrees.begin(), s_degrees.end());
-                std::sort(s_degrees, s_degrees+s_len);
+                std::sort(s_degrees.begin(), s_degrees.begin() + s_len);
                 diff -= s_degrees[--val];
                 while (diff > 0)
                     diff -= s_degrees[--val];
@@ -429,7 +423,7 @@ unsigned int calc_bound(const Graph &g0, const Graph &g1, vector<Bidomain> &doma
                 diff = s_non_connections - b_non_connections;
                 if (diff > 0) {
 //                    std::sort(s_degrees.begin(), s_degrees.end(), std::greater<>());
-                    std::sort(s_degrees, s_degrees+s_len, std::greater<>());
+                    std::sort(s_degrees.begin(), s_degrees.begin()+s_len, std::greater<>());
                     diff -= s_len - s_degrees[--val];
                     while (diff > 0)
                         diff -= s_len - s_degrees[--val];
@@ -709,7 +703,8 @@ void remove_bidomain(vector<Bidomain>& domains, int idx) {
 
 void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
         vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
-        vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal)
+        vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal,
+           std::array<long double, ARRAY_SIZE> &array, std::array<int, best_partition_ub> &s_degrees)
 {
     if (abort_due_to_timeout) {
         return;
@@ -729,7 +724,7 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
 
 
     auto bound_calc_start = std::chrono::steady_clock::now();
-    unsigned int bound = calc_bound(g0, g1, domains, left, right, incumbent, current);//计算相连和不相连同构数的最大可能加上当前已经同构的点数
+    unsigned int bound = calc_bound(g0, g1, domains, left, right, incumbent, current, array, s_degrees);//计算相连和不相连同构数的最大可能加上当前已经同构的点数
     bound_duration += std::chrono::steady_clock::now() - bound_calc_start;
     if (bound <= incumbent.size() || bound < matching_size_goal) {//剪枝
         cut_branches++;
@@ -777,7 +772,7 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
         auto new_domains = rewardfeed(domains,bd_idx,current, g0_matched, g1_matched, left, right, V, Q[v], g0, g1, v, w,
                 arguments.directed || arguments.edge_labelled);
         dl++;
-        solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, new_domains, left, right, matching_size_goal);
+        solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, new_domains, left, right, matching_size_goal, array, s_degrees);
         while(current.size() > cur_len) {
             VtxPair pr = current.back();
             current.pop_back();
@@ -788,7 +783,7 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
     bd.right_len++;
     if (bd.left_len == 0)
         remove_bidomain(domains, bd_idx);
-    solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal);
+    solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal, array, s_degrees);
 }
 
 vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
@@ -833,7 +828,11 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
     }
 
     vector<VtxPair> incumbent;
-
+    std::array<long double, ARRAY_SIZE> array{};
+    std::array<int, best_partition_ub> s_degrees{};
+    for (auto & i : array) {
+        i = 1.0;
+    }
     if (arguments.big_first) {
         for (int k=0; k<g0.n; k++) {
             unsigned int goal = g0.n - k;
@@ -841,14 +840,14 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
             auto right_copy = right;
             auto domains_copy = domains;
             vector<VtxPair> current;
-            solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains_copy, left_copy, right_copy, goal);
+            solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains_copy, left_copy, right_copy, goal, array, s_degrees);
             if (incumbent.size() == goal || abort_due_to_timeout) break;
             if (!arguments.quiet) cout << "Upper bound: " << goal-1 << std::endl;
         }
 
     } else {
         vector<VtxPair> current;
-        solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
+        solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1, array, s_degrees);
     }
 
     return incumbent;
@@ -900,7 +899,7 @@ void pack_leaves(Graph &g) {
 
 int main(int argc, char** argv) {
     set_default_arguments();
-    initializeArray();
+//    initializeArray();
     argp_parse(&argp, argc, argv, 0, 0, 0);
 
     char format = arguments.dimacs ? 'D' : arguments.lad ? 'L' : 'B';
