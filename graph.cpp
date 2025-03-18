@@ -18,14 +18,18 @@ Graph::Graph(unsigned int n) {
     label = std::vector<unsigned int>(n, 0u);
     adjmat = std::vector<std::vector<unsigned int>>(n, std::vector<unsigned int>(n, false));
     leaves = std::vector<std::vector<std::pair<std::pair<unsigned int, unsigned int>, std::vector<int>>>> (n);
+    adjlist = {n, std::vector<unsigned int>()};
 }
 
 Graph induced_subgraph(struct Graph& g, std::vector<int> vv) {
     Graph subg(vv.size());
-    for (int i=0; i<subg.n; i++)
-        for (int j=0; j<subg.n; j++)
-            subg.adjmat[i][j] = g.adjmat[vv[i]][vv[j]];//vv向量标志着顺序
-
+    for (int i=0; i<subg.n; i++) {
+        for (int j=0; j<subg.n; j++) {
+            subg.adjmat[i][j] = g.adjmat[vv[i]][vv[j]];
+            if (subg.adjmat[i][j])
+                subg.adjlist[i].push_back(j);
+        }
+    }
     for (int i=0; i<subg.n; i++)
         subg.label[i] = g.label[vv[i]];
     return subg;
