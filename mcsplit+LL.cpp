@@ -543,26 +543,38 @@ size_t hash_vector(const std::vector<unsigned int>& vec) {
     return seed;
 }
 
-std::vector<std::vector<unsigned int>> findVerticesWithCommonNeighbors(const Graph& graph) {
+size_t MAX_DEGREE = 11;
+int findVerticesWithCommonNeighbors(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
     neighborhoodGroups.reserve(graph.n / 2);
 
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
-        size_t hash = hash_vector(graph.adjlist[v]);
-        neighborhoodGroups[hash].push_back(v);
-    }
-
-    // Corrected version to collect groups with more than one vertex
-    std::vector<std::vector<unsigned int>> commonNeighborhoodVertices;
-    commonNeighborhoodVertices.reserve(neighborhoodGroups.size()/2);
-
-    for (const auto& pair : neighborhoodGroups) {
-        if (pair.second.size() > 1) {
-            commonNeighborhoodVertices.push_back(pair.second);
+        size_t hash = 1;
+        if (graph.adjlist[v].size() < MAX_DEGREE) {
+            for (unsigned int u : graph.adjlist[v]) {
+                hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
+                        + ((hash << 6) & 0xFFFFFFFF)
+                        + ((hash >> 2) & 0xFFFFFFFF);
+            }
+            neighborhoodGroups[hash].push_back(v);
         }
     }
 
-    return commonNeighborhoodVertices;
+    int n_syms = 0;
+    for (const auto& batch : neighborhoodGroups) {
+        if (batch.second.size() > 1) {
+            int w = batch.second[0];
+            for (size_t i = 1; i < batch.second.size(); i++) {
+                n_syms++;
+                disable[batch.second[i]] = w;
+            }
+//            if (batch.second.size() > MAX_DEGREE_WITH_SYM) {
+//                MAX_DEGREE_WITH_SYM = batch.second.size();
+//            }
+        }
+    }
+
+    return n_syms;
 }
 
 void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
@@ -772,26 +784,10 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
 
     vector<int> disable_g0 (g0.n, -1);
     vector<int> disable_g1 (g1.n, -1);
-    int g0_n_syms = 0;
-    int g1_n_syms = 0;
-    std::vector<std::vector<unsigned int>> g0_symmetric_vertices = findVerticesWithCommonNeighbors(g0);
-    for (const auto& batch : g0_symmetric_vertices) {
-        int w = batch[0];
-        for (size_t i = 1; i < batch.size(); i++) {
-            disable_g0[batch[i]] = w;
-            g0_n_syms++;
-        }
-    }
+    int g0_n_syms = findVerticesWithCommonNeighbors(g0, disable_g0);
+    int g1_n_syms = findVerticesWithCommonNeighbors(g1, disable_g1);
     if (g0_n_syms > 0) {
         g0_has_syms = true;
-    }
-    std::vector<std::vector<unsigned int>> g1_symmetric_vertices = findVerticesWithCommonNeighbors(g1);
-    for (const auto& batch : g1_symmetric_vertices) {
-        int w = batch[0];
-        for (size_t i = 1; i < batch.size(); i++) {
-            disable_g1[batch[i]] = w;
-            g1_n_syms++;
-        }
     }
     if (g1_n_syms > 0) {
         g1_has_syms = true;
