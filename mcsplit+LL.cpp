@@ -537,29 +537,18 @@ inline void hash_combine(std::size_t& seed, unsigned int value) {
             + ((seed >> 2) & 0xFFFFFFFF);
 }
 
-size_t hash_vector(const std::vector<unsigned int>& vec) {
-    size_t seed = vec.size();
-    for (unsigned int v : vec) {
-        hash_combine(seed, v);
-    }
-    return seed;
-}
-
-size_t MAX_DEGREE = 11;
 int findVerticesWithCommonNeighbors(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
     neighborhoodGroups.reserve(graph.n / 2);
 
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t hash = 1;
-        if (graph.adjlist[v].size() < MAX_DEGREE) {
-            for (unsigned int u : graph.adjlist[v]) {
-                hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
-                        + ((hash << 6) & 0xFFFFFFFF)
-                        + ((hash >> 2) & 0xFFFFFFFF);
-            }
-            neighborhoodGroups[hash].push_back(v);
+        for (unsigned int u : graph.adjlist[v]) {
+            hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
+                    + ((hash << 6) & 0xFFFFFFFF)
+                    + ((hash >> 2) & 0xFFFFFFFF);
         }
+        neighborhoodGroups[hash].push_back(v);
     }
 
     int n_syms = 0;
