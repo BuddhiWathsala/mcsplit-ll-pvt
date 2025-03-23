@@ -568,6 +568,48 @@ int findVerticesWithCommonNeighbors(const Graph& graph, vector<int> &disable) {
     return n_syms;
 }
 
+int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disable) {
+    std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
+    neighborhoodGroups.reserve(graph.n / 2);
+    vector<vector<int>> testing;
+    for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
+        size_t hash = 1;
+        vector<int> t;
+        for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
+            if (graph.adjmat[v][u]) {
+                hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
+                        + ((hash << 6) & 0xFFFFFFFF)
+                        + ((hash >> 2) & 0xFFFFFFFF);
+                t.push_back(u);
+            }
+            if (v == u) {
+                hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
+                        + ((hash << 6) & 0xFFFFFFFF)
+                        + ((hash >> 2) & 0xFFFFFFFF);
+                t.push_back(u);
+            }
+        }
+        testing.push_back(t);
+        neighborhoodGroups[hash].push_back(v);
+    }
+
+    int n_syms = 0;
+    for (const auto& batch : neighborhoodGroups) {
+        if (batch.second.size() > 1) {
+            int w = batch.second[0];
+            for (size_t i = 1; i < batch.second.size(); i++) {
+                n_syms++;
+                disable[batch.second[i]] = w;
+            }
+//            if (batch.second.size() > MAX_DEGREE_WITH_SYM) {
+//                MAX_DEGREE_WITH_SYM = batch.second.size();
+//            }
+        }
+    }
+
+    return n_syms;
+}
+
 void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
         vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
         vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal,
@@ -801,8 +843,8 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
     vector<int> disable_g1 (g1.n, -1);
     global_visit_g0 = vector<bool> (g0.n, false);
     global_visit_g1 = vector<bool> (g1.n, false);
-    int g0_n_syms = findVerticesWithCommonNeighbors(g0, disable_g0);
-    int g1_n_syms = findVerticesWithCommonNeighbors(g1, disable_g1);
+    int g0_n_syms = findVerticesWithCommonNeighborsAdjmat(g0, disable_g0);
+    int g1_n_syms = findVerticesWithCommonNeighborsAdjmat(g1, disable_g1);
     if (g0_n_syms > 0) {
         g0_has_syms = true;
     }
