@@ -570,27 +570,28 @@ int findVerticesWithCommonNeighbors(const Graph& graph, vector<int> &disable) {
 
 int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
-    neighborhoodGroups.reserve(graph.n / 2);
-    vector<vector<int>> testing;
+    neighborhoodGroups.reserve(graph.n);
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
-        size_t hash = 1;
+        size_t positive_hash = 1;
+        size_t negative_hash = 1;
         vector<int> t;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
             if (graph.adjmat[v][u]) {
-                hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
-                        + ((hash << 6) & 0xFFFFFFFF)
-                        + ((hash >> 2) & 0xFFFFFFFF);
-                t.push_back(u);
+                positive_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
+                                 + ((positive_hash << 6) & 0xFFFFFFFF)
+                                 + ((positive_hash >> 2) & 0xFFFFFFFF);
+                negative_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
+                                 + ((negative_hash << 6) & 0xFFFFFFFF)
+                                 + ((negative_hash >> 2) & 0xFFFFFFFF);
             }
             if (v == u) {
-                hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
-                        + ((hash << 6) & 0xFFFFFFFF)
-                        + ((hash >> 2) & 0xFFFFFFFF);
-                t.push_back(u);
+                positive_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
+                                 + ((positive_hash << 6) & 0xFFFFFFFF)
+                                 + ((positive_hash >> 2) & 0xFFFFFFFF);
             }
         }
-        testing.push_back(t);
-        neighborhoodGroups[hash].push_back(v);
+        neighborhoodGroups[positive_hash].push_back(v);
+        neighborhoodGroups[negative_hash].push_back(v);
     }
 
     int n_syms = 0;
@@ -601,9 +602,6 @@ int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disab
                 n_syms++;
                 disable[batch.second[i]] = w;
             }
-//            if (batch.second.size() > MAX_DEGREE_WITH_SYM) {
-//                MAX_DEGREE_WITH_SYM = batch.second.size();
-//            }
         }
     }
 
