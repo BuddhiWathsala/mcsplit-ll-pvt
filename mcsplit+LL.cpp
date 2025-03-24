@@ -531,43 +531,6 @@ void remove_bidomain(vector<Bidomain>& domains, int idx) {
     domains.pop_back();
 }
 
-inline void hash_combine(std::size_t& seed, unsigned int value) {
-    seed ^= std::hash<unsigned int>{}(value) + 0x9e3779b9
-            + ((seed << 6) & 0xFFFFFFFF)
-            + ((seed >> 2) & 0xFFFFFFFF);
-}
-
-int findVerticesWithCommonNeighbors(const Graph& graph, vector<int> &disable) {
-    std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
-    neighborhoodGroups.reserve(graph.n / 2);
-
-    for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
-        size_t hash = 1;
-        for (unsigned int u : graph.adjlist[v]) {
-            hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
-                    + ((hash << 6) & 0xFFFFFFFF)
-                    + ((hash >> 2) & 0xFFFFFFFF);
-        }
-        neighborhoodGroups[hash].push_back(v);
-    }
-
-    int n_syms = 0;
-    for (const auto& batch : neighborhoodGroups) {
-        if (batch.second.size() > 1) {
-            int w = batch.second[0];
-            for (size_t i = 1; i < batch.second.size(); i++) {
-                n_syms++;
-                disable[batch.second[i]] = w;
-            }
-//            if (batch.second.size() > MAX_DEGREE_WITH_SYM) {
-//                MAX_DEGREE_WITH_SYM = batch.second.size();
-//            }
-        }
-    }
-
-    return n_syms;
-}
-
 int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
     neighborhoodGroups.reserve(graph.n);
