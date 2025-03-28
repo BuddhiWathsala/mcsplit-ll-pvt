@@ -537,30 +537,20 @@ int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disab
     neighborhoodGroups.reserve(graph.n);
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t positive_hash = 1;
-        size_t negative_hash = 1;
         vector<int> t;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
             if (graph.adjmat[v][u] == DIR1) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
                                  + ((positive_hash << 6) & 0xFFFFFFFF)
                                  + ((positive_hash >> 2) & 0xFFFFFFFF);
-                negative_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
-                                 + ((negative_hash << 6) & 0xFFFFFFFF)
-                                 + ((negative_hash >> 2) & 0xFFFFFFFF);
             } else if (graph.adjmat[v][u] == DIR2) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x61C88647
                                  + ((positive_hash << 6) & 0xFFFFFFFF)
                                  + ((positive_hash >> 2) & 0xFFFFFFFF);
-                negative_hash ^= std::hash<unsigned int>{}(u) + 0x61C88647
-                                 + ((negative_hash << 6) & 0xFFFFFFFF)
-                                 + ((negative_hash >> 2) & 0xFFFFFFFF);
             } else if (graph.adjmat[v][u] == DIR3) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x517CC1B7
                                  + ((positive_hash << 6) & 0xFFFFFFFF)
                                  + ((positive_hash >> 2) & 0xFFFFFFFF);
-                negative_hash ^= std::hash<unsigned int>{}(u) + 0x517CC1B7
-                                 + ((negative_hash << 6) & 0xFFFFFFFF)
-                                 + ((negative_hash >> 2) & 0xFFFFFFFF);
             }
             if (v == u) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x517CC1B7
@@ -569,7 +559,6 @@ int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disab
             }
         }
         neighborhoodGroups[positive_hash].push_back(v);
-        neighborhoodGroups[negative_hash].push_back(v);
     }
 
     int n_syms = 0;
