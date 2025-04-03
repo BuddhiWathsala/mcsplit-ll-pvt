@@ -199,6 +199,8 @@ unsigned long long calls_for_optimal = 0;
 std::chrono::duration<double> duration;
 bool g0_has_syms = false;
 bool g1_has_syms = false;
+unsigned int g0_n_syms = 0;
+unsigned int g1_n_syms = 0;
 unsigned int g0_pruned = 0;
 unsigned int g1_pruned = 0;
 vector<bool> global_visit_g0;
@@ -531,9 +533,9 @@ void remove_bidomain(vector<Bidomain>& domains, int idx) {
     domains.pop_back();
 }
 
-int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disable) {
+unsigned int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
-    neighborhoodGroups.reserve(graph.n / 2);
+    neighborhoodGroups.reserve(graph.n / 4);
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t positive_hash = 1;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
@@ -551,7 +553,7 @@ int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disab
         neighborhoodGroups[positive_hash].push_back(v);
     }
 
-    int n_syms = 0;
+    unsigned int n_syms = 0;
     for (const auto& batch : neighborhoodGroups) {
         if (batch.second.size() > 1) {
             int w = batch.second[0];
@@ -798,8 +800,8 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
     vector<int> disable_g1 (g1.n, -1);
     global_visit_g0 = vector<bool> (g0.n, false);
     global_visit_g1 = vector<bool> (g1.n, false);
-    int g0_n_syms = findVerticesWithCommonNeighborsAdjmat(g0, disable_g0);
-    int g1_n_syms = findVerticesWithCommonNeighborsAdjmat(g1, disable_g1);
+    g0_n_syms = findVerticesWithCommonNeighborsAdjmat(g0, disable_g0);
+    g1_n_syms = findVerticesWithCommonNeighborsAdjmat(g1, disable_g1);
     if (g0_n_syms > 0) {
         g0_has_syms = true;
     }
@@ -1038,6 +1040,7 @@ int main(int argc, char** argv) {
 //         cout << "TIMEOUT" << endl;
     cout << solution.size() << ", " << check_sol(g0, g1, solution) << ", " << duration.count() << ", "
          << time_elapsed.count() << ", " << nodes << ", " << calls_for_optimal << ", " << cut_branches << ", " <<
-         g0_has_syms << ", " << g1_has_syms << ", " << g0_pruned << ", " << g1_pruned << ", " << aborted << endl;
+         g0_has_syms << ", " << g1_has_syms << ", " << g0_n_syms << ", " << g1_n_syms << ", " <<
+         g0_pruned << ", " << g1_pruned << ", " << aborted << endl;
 }
 
