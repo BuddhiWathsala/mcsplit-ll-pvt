@@ -533,7 +533,7 @@ void remove_bidomain(vector<Bidomain>& domains, int idx) {
 
 int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
-    neighborhoodGroups.reserve(graph.n);
+    neighborhoodGroups.reserve(graph.n / 2);
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t positive_hash = 1;
         vector<int> t;
