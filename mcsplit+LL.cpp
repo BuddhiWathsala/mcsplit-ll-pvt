@@ -536,7 +536,6 @@ int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disab
     neighborhoodGroups.reserve(graph.n / 2);
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t positive_hash = 1;
-        vector<int> t;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
             if (graph.adjmat[v][u]) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
