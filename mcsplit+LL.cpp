@@ -205,6 +205,7 @@ unsigned int g0_pruned = 0;
 unsigned int g1_pruned = 0;
 vector<bool> global_visit_g0;
 vector<bool> global_visit_g1;
+unsigned int max_sym_degree = 0;
 
 /*******************************************************************************
                                  MCS functions
@@ -536,6 +537,7 @@ void remove_bidomain(vector<Bidomain>& domains, int idx) {
 unsigned int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
     neighborhoodGroups.reserve(graph.n / 4);
+    vector<unsigned int> degrees (graph.n, 0);
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t positive_hash = 1;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
@@ -543,6 +545,7 @@ unsigned int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<in
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
                                  + ((positive_hash << 6) & 0xFFFFFFFF)
                                  + ((positive_hash >> 2) & 0xFFFFFFFF);
+                degrees[v]++;
             }
             if (v == u) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
@@ -557,6 +560,9 @@ unsigned int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<in
     for (const auto& batch : neighborhoodGroups) {
         if (batch.second.size() > 1) {
             int w = batch.second[0];
+            if (max_sym_degree < degrees[w]) {
+                max_sym_degree = degrees[w];
+            }
             for (size_t i = 1; i < batch.second.size(); i++) {
                 n_syms++;
                 disable[batch.second[i]] = w;
@@ -1041,6 +1047,6 @@ int main(int argc, char** argv) {
     cout << solution.size() << ", " << check_sol(g0, g1, solution) << ", " << duration.count() << ", "
          << time_elapsed.count() << ", " << nodes << ", " << calls_for_optimal << ", " << cut_branches << ", " <<
          g0_has_syms << ", " << g1_has_syms << ", " << g0_n_syms << ", " << g1_n_syms << ", " <<
-         g0_pruned << ", " << g1_pruned << ", " << aborted << endl;
+         g0_pruned << ", " << g1_pruned << ", " << max_sym_degree << ", " << aborted << endl;
 }
 
