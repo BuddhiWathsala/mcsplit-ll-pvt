@@ -203,8 +203,6 @@ unsigned int g0_n_syms = 0;
 unsigned int g1_n_syms = 0;
 unsigned int g0_pruned = 0;
 unsigned int g1_pruned = 0;
-vector<bool> global_visit_g0;
-vector<bool> global_visit_g1;
 unsigned int max_sym_degree = 0;
 
 /*******************************************************************************
@@ -621,18 +619,6 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
     tmp_idx = selectV_index(left, V, bd.l, bd.left_len);
     v = left[bd.l + tmp_idx];
     remove_vtx_from_array(left, bd.l, bd.left_len, tmp_idx);
-    global_visit_g0[v] = true;
-    if (disable_g0[v] != -1 && !global_visit_g0[disable_g0[v]]) {
-        int indicator_v = disable_g0[v];
-        for (int i=0; i < g0.n; ++i) {
-            if (disable_g0[i] == indicator_v) {
-                disable_g0[i] = v;
-            }
-        }
-        disable_g0[v] = -1;
-        disable_g0[indicator_v] = v;
-
-    }
 
     if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == DISCARD) {
         g0_pruned++;
@@ -644,19 +630,7 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
             tmp_idx = selectW_index(right, Q[v], bd.r, bd.right_len + 1, wselected);
             w = right[bd.r + tmp_idx];
             wselected[w]=1;
-            global_visit_g1[w] = true;
             std::swap(right[bd.r + tmp_idx], right[bd.r + bd.right_len]);
-            if (disable_g1[w] != -1 && !global_visit_g1[disable_g1[w]]) {
-                int indicator_w = disable_g1[w];
-                for (int i=0; i < g1.n; ++i) {
-                    if (disable_g1[i] == indicator_w) {
-                        disable_g1[i] = w;
-                    }
-                }
-                disable_g1[w] = -1;
-                disable_g1[indicator_w] = w;
-
-            }
             if (g1_has_syms && disable_g1[w] != -1 && matched_g1[disable_g1[w]] == ACTIVE) {
                 g1_pruned++;
                 continue;
@@ -804,8 +778,6 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
 
     vector<int> disable_g0 (g0.n, -1);
     vector<int> disable_g1 (g1.n, -1);
-    global_visit_g0 = vector<bool> (g0.n, false);
-    global_visit_g1 = vector<bool> (g1.n, false);
     g0_n_syms = findVerticesWithCommonNeighborsAdjmat(g0, disable_g0);
     g1_n_syms = findVerticesWithCommonNeighborsAdjmat(g1, disable_g1);
     if (g0_n_syms > 0) {
