@@ -197,6 +197,7 @@ unsigned long long cut_branches = 0;
 unsigned long long best_count = 0;
 unsigned long long calls_for_optimal = 0;
 std::chrono::duration<double> duration;
+std::chrono::duration<double> sym_calc_duration;
 bool g0_has_syms = false;
 bool g1_has_syms = false;
 unsigned int g0_n_syms = 0;
@@ -778,8 +779,10 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
 
     vector<int> disable_g0 (g0.n, -1);
     vector<int> disable_g1 (g1.n, -1);
+    auto sym_calc_start = std::chrono::steady_clock::now();
     g0_n_syms = findVerticesWithCommonNeighborsAdjmat(g0, disable_g0);
     g1_n_syms = findVerticesWithCommonNeighborsAdjmat(g1, disable_g1);
+    sym_calc_duration = std::chrono::steady_clock::now() - sym_calc_start;
     if (g0_n_syms > 0) {
         g0_has_syms = true;
     }
@@ -1019,6 +1022,6 @@ int main(int argc, char** argv) {
     cout << solution.size() << ", " << check_sol(g0, g1, solution) << ", " << duration.count() << ", "
          << time_elapsed.count() << ", " << nodes << ", " << calls_for_optimal << ", " << cut_branches << ", " <<
          g0_has_syms << ", " << g1_has_syms << ", " << g0_n_syms << ", " << g1_n_syms << ", " <<
-         g0_pruned << ", " << g1_pruned << ", " << max_sym_degree << ", " << aborted << endl;
+         g0_pruned << ", " << g1_pruned << ", " << max_sym_degree << ", " << sym_calc_duration.count() << ", " << aborted << endl;
 }
 
