@@ -16,19 +16,26 @@ static void fail(std::string msg) {
 Graph::Graph(unsigned int n) {
     this->n = n;
     label = std::vector<unsigned int>(n, 0u);
+    density = 0.0;
     adjmat = std::vector<std::vector<unsigned int>>(n, std::vector<unsigned int>(n, false));
     leaves = std::vector<std::vector<std::pair<std::pair<unsigned int, unsigned int>, std::vector<int>>>> (n);
 }
 
 Graph induced_subgraph(struct Graph& g, std::vector<int> vv) {
     Graph subg(vv.size());
+    size_t edge_count = 0;
     for (int i=0; i<subg.n; i++) {
         for (int j=0; j<subg.n; j++) {
             subg.adjmat[i][j] = g.adjmat[vv[i]][vv[j]];
+            if (subg.adjmat[i][j]) {
+                edge_count++;
+            }
         }
     }
     for (int i=0; i<subg.n; i++)
         subg.label[i] = g.label[vv[i]];
+    double max_possible_edges = g.n * (g.n - 1.0);
+    subg.density = edge_count / (max_possible_edges);
     return subg;
 }
 
