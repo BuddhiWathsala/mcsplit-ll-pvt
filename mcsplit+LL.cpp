@@ -201,8 +201,8 @@ bool g0_has_syms = false;
 bool g1_has_syms = false;
 unsigned int g0_pruned = 0;
 unsigned int g1_pruned = 0;
-vector<bool> global_visit_g0;
-vector<bool> global_visit_g1;
+unsigned int g0_n_syms = 0;
+unsigned int g1_n_syms = 0;
 
 /*******************************************************************************
                                  MCS functions
@@ -537,20 +537,29 @@ int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disab
     neighborhoodGroups.reserve(graph.n);
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t positive_hash = 1;
-        vector<int> t;
+        size_t negative_hash = 1;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
             if (graph.adjmat[v][u] == DIR1) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
                                  + ((positive_hash << 6) & 0xFFFFFFFF)
                                  + ((positive_hash >> 2) & 0xFFFFFFFF);
+                negative_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
+                                 + ((negative_hash << 6) & 0xFFFFFFFF)
+                                 + ((negative_hash >> 2) & 0xFFFFFFFF);
             } else if (graph.adjmat[v][u] == DIR2) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x61C88647
                                  + ((positive_hash << 6) & 0xFFFFFFFF)
                                  + ((positive_hash >> 2) & 0xFFFFFFFF);
+                negative_hash ^= std::hash<unsigned int>{}(u) + 0x61C88647
+                                 + ((negative_hash << 6) & 0xFFFFFFFF)
+                                 + ((negative_hash >> 2) & 0xFFFFFFFF);
             } else if (graph.adjmat[v][u] == DIR3) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x517CC1B7
                                  + ((positive_hash << 6) & 0xFFFFFFFF)
                                  + ((positive_hash >> 2) & 0xFFFFFFFF);
+                negative_hash ^= std::hash<unsigned int>{}(u) + 0x517CC1B7
+                                 + ((negative_hash << 6) & 0xFFFFFFFF)
+                                 + ((negative_hash >> 2) & 0xFFFFFFFF);
             }
             if (v == u) {
                 positive_hash ^= std::hash<unsigned int>{}(u) + 0x517CC1B7
@@ -623,18 +632,6 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
     tmp_idx = selectV_index(left, V, bd.l, bd.left_len);
     v = left[bd.l + tmp_idx];
     remove_vtx_from_array(left, bd.l, bd.left_len, tmp_idx);
-    global_visit_g0[v] = true;
-    if (disable_g0[v] != -1 && !global_visit_g0[disable_g0[v]]) {
-        int indicator_v = disable_g0[v];
-        for (int i=0; i < g0.n; ++i) {
-            if (disable_g0[i] == indicator_v) {
-                disable_g0[i] = v;
-            }
-        }
-        disable_g0[v] = -1;
-        disable_g0[indicator_v] = v;
-
-    }
 
     if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == DISCARD) {
         g0_pruned++;
@@ -646,19 +643,7 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
             tmp_idx = selectW_index(right, Q[v], bd.r, bd.right_len + 1, wselected);
             w = right[bd.r + tmp_idx];
             wselected[w]=1;
-            global_visit_g1[w] = true;
             std::swap(right[bd.r + tmp_idx], right[bd.r + bd.right_len]);
-            if (disable_g1[w] != -1 && !global_visit_g1[disable_g1[w]]) {
-                int indicator_w = disable_g1[w];
-                for (int i=0; i < g1.n; ++i) {
-                    if (disable_g1[i] == indicator_w) {
-                        disable_g1[i] = w;
-                    }
-                }
-                disable_g1[w] = -1;
-                disable_g1[indicator_w] = w;
-
-            }
             if (g1_has_syms && disable_g1[w] != -1 && matched_g1[disable_g1[w]] == ACTIVE) {
                 g1_pruned++;
                 continue;
@@ -780,6 +765,7 @@ void solve1(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<
     solve1(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal);
 }
 
+double DENSITY = 0.1;
 vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
     vector<int> left;  // the buffer of vertex indices for the left partitions
     vector<int> right;  // the buffer of vertex indices for the right partitions
@@ -806,10 +792,8 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
 
     vector<int> disable_g0 (g0.n, -1);
     vector<int> disable_g1 (g1.n, -1);
-    global_visit_g0 = vector<bool> (g0.n, false);
-    global_visit_g1 = vector<bool> (g1.n, false);
-    int g0_n_syms = findVerticesWithCommonNeighborsAdjmat(g0, disable_g0);
-    int g1_n_syms = findVerticesWithCommonNeighborsAdjmat(g1, disable_g1);
+    g0_n_syms = findVerticesWithCommonNeighborsAdjmat(g0, disable_g0);
+    g1_n_syms = findVerticesWithCommonNeighborsAdjmat(g1, disable_g1);
     if (g0_n_syms > 0) {
         g0_has_syms = true;
     }
@@ -855,9 +839,14 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
         if (!g0_has_syms && !g1_has_syms) {
             solve1(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
         } else {
-            vector<MatchingState> matched_g0 (g0.n, ACTIVE);
-            vector<MatchingState> matched_g1 (g1.n, ACTIVE);
-            solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1, matched_g0, matched_g1, disable_g0, disable_g1);
+            if (g0.density > DENSITY || g1.density > DENSITY) {
+                vector<MatchingState> matched_g0 (g0.n, ACTIVE);
+                vector<MatchingState> matched_g1 (g1.n, ACTIVE);
+                solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1, matched_g0, matched_g1, disable_g0, disable_g1);
+            } else {
+                solve1(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
+            }
+
         }
 
     }

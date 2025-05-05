@@ -65,3 +65,4 @@ test:
 	./bin/run.o min_max ./data/tests/case40/pattern ./data/tests/case40/target -l -c -q -t ${MAX_TIME}
 	./bin/run.o min_max ./data/tests/case41/g15 ./data/tests/case41/g57 -l -c -q -t ${MAX_TIME}
 	./bin/run.o min_max ./data/tests/case42/g6 ./data/tests/case42/g17 -l -c -q -t ${MAX_TIME}
+	./bin/run.o min_max data/largerLV/patterns/g14 data/largerLV/targets/g58 -l -c -q -t 10
