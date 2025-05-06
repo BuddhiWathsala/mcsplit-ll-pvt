@@ -577,10 +577,13 @@ unsigned int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<in
     return n_syms;
 }
 
+const int G0_DISCARD = -1;
+const int G0_ACTIVE = -2;
+
 void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
         vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
         vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal,
-           vector<MatchingState> &matched_g0, vector<MatchingState> &matched_g1,
+           vector<int> &matched_g0, vector<MatchingState> &matched_g1,
            vector<int> &disable_g0, vector<int> &disable_g1)
 {
     if (abort_due_to_timeout) {
@@ -626,7 +629,7 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
     v = left[bd.l + tmp_idx];
     remove_vtx_from_array(left, bd.l, bd.left_len, tmp_idx);
 
-    if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == DISCARD) {
+    if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == G0_DISCARD) {
         g0_pruned++;
     } else {
         // Try assigning v to each vertex w in the colour class beginning at bd.r, in turn
@@ -641,7 +644,11 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
                 g1_pruned++;
                 continue;
             }
+            if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] > w) {
+                g0_pruned++;
+            }
             matched_g1[w] = MATCHED;
+            matched_g0[v] = w;
 
 #ifdef DEBUG
             cout<<"v= "<<v<<" w= "<<w<<endl;
@@ -670,9 +677,9 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
 
     if (bd.left_len == 0)
         remove_bidomain(domains, bd_idx);
-    matched_g0[v] = DISCARD;
+    matched_g0[v] = G0_DISCARD;
     solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal, matched_g0, matched_g1, disable_g0, disable_g1);
-    matched_g0[v] = ACTIVE;
+    matched_g0[v] = G0_ACTIVE;
 }
 
 void solve1(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
@@ -822,7 +829,7 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
             auto right_copy = right;
             auto domains_copy = domains;
             vector<VtxPair> current;
-            vector<MatchingState> matched_g0 (g0.n, ACTIVE);
+            vector<int> matched_g0 (g0.n, G0_ACTIVE);
             vector<MatchingState> matched_g1 (g1.n, ACTIVE);
             solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains_copy, left_copy, right_copy, goal, matched_g0, matched_g1, disable_g0, disable_g1);
             if (incumbent.size() == goal || abort_due_to_timeout) break;
@@ -835,7 +842,7 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
             solve1(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
         } else {
             if (g0.density > DENSITY || g1.density > DENSITY) {
-                vector<MatchingState> matched_g0 (g0.n, ACTIVE);
+                vector<int> matched_g0 (g0.n, G0_ACTIVE);
                 vector<MatchingState> matched_g1 (g1.n, ACTIVE);
                 solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1, matched_g0, matched_g1, disable_g0, disable_g1);
             } else {
