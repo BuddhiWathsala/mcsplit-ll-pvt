@@ -19,6 +19,7 @@
 
 
 #include "graph.h"
+#include "primes.h"
 
 #include <algorithm>
 #include <numeric>
@@ -532,41 +533,30 @@ void remove_bidomain(vector<Bidomain>& domains, int idx) {
     domains[idx] = domains[domains.size()-1];
     domains.pop_back();
 }
-
-unsigned int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<int> &disable) {
+int findVerticesWithCommonNeighbors(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
-    neighborhoodGroups.reserve(graph.n / 4);
-    vector<unsigned int> degrees (graph.n, 0);
+    neighborhoodGroups.reserve(graph.n);
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t positive_hash = 1;
         size_t negative_hash = 1;
+        vector<int> t;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
             if (graph.adjmat[v][u]) {
-                positive_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
-                                 + ((positive_hash << 6) & 0xFFFFFFFF)
-                                 + ((positive_hash >> 2) & 0xFFFFFFFF);
-                negative_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
-                                 + ((negative_hash << 6) & 0xFFFFFFFF)
-                                 + ((negative_hash >> 2) & 0xFFFFFFFF);
-                degrees[v]++;
+                positive_hash *= PRIMES[u];
+                negative_hash *= PRIMES[u];;
             }
             if (v == u) {
-                positive_hash ^= std::hash<unsigned int>{}(u) + 0x9e3779b9
-                                 + ((positive_hash << 6) & 0xFFFFFFFF)
-                                 + ((positive_hash >> 2) & 0xFFFFFFFF);
+                positive_hash *= PRIMES[u];;
             }
         }
         neighborhoodGroups[positive_hash].push_back(v);
         neighborhoodGroups[negative_hash].push_back(v);
     }
 
-    unsigned int n_syms = 0;
+    int n_syms = 0;
     for (const auto& batch : neighborhoodGroups) {
         if (batch.second.size() > 1) {
             int w = batch.second[0];
-            if (max_sym_degree < degrees[w]) {
-                max_sym_degree = degrees[w];
-            }
             for (size_t i = 1; i < batch.second.size(); i++) {
                 n_syms++;
                 disable[batch.second[i]] = w;
@@ -577,14 +567,46 @@ unsigned int findVerticesWithCommonNeighborsAdjmat(const Graph& graph, vector<in
     return n_syms;
 }
 
-const int G0_DISCARD = -1;
-const int G0_ACTIVE = -2;
+int findVerticesWithCommonNeighborsRev(const Graph& graph, vector<int> &disable) {
+    std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
+    neighborhoodGroups.reserve(graph.n);
+    for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
+        size_t positive_hash = 1;
+        size_t negative_hash = 1;
+        vector<int> t;
+        for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
+            if (graph.adjmat[v][u]) {
+                positive_hash *= PRIMES[u];
+                negative_hash *= PRIMES[u];;
+            }
+            if (v == u) {
+                positive_hash *= PRIMES[u];;
+            }
+        }
+        neighborhoodGroups[positive_hash].push_back(v);
+        neighborhoodGroups[negative_hash].push_back(v);
+    }
 
-void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
-        vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
-        vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal,
-           vector<int> &matched_g0, vector<MatchingState> &matched_g1,
-           vector<int> &disable_g0, vector<int> &disable_g1)
+    int n_syms = 0;
+    for (const auto& batch : neighborhoodGroups) {
+        if (batch.second.size() > 1) {
+            size_t n = batch.second.size();
+            int w = batch.second.at(n-1);
+            for (size_t i = 0; i < (n-1); i++) {
+                n_syms++;
+                disable[batch.second[i]] = w;
+            }
+        }
+    }
+
+    return n_syms;
+}
+
+void solve_with_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
+                    vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
+                    vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal,
+                    vector<MatchingState> &matched_g0, vector<MatchingState> &matched_g1,
+                    vector<int> &disable_g0, vector<int> &disable_g1)
 {
     if (abort_due_to_timeout) {
         return;
@@ -629,10 +651,11 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
     v = left[bd.l + tmp_idx];
     remove_vtx_from_array(left, bd.l, bd.left_len, tmp_idx);
 
-    if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == G0_DISCARD) {
+    if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == DISCARD) {
         g0_pruned++;
     } else {
         // Try assigning v to each vertex w in the colour class beginning at bd.r, in turn
+        matched_g0[v] = MATCHED;
         vector<int> wselected(g1.n, 0);
         bd.right_len--;//
         for (int i=0; i<=bd.right_len; i++) {
@@ -640,15 +663,11 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
             w = right[bd.r + tmp_idx];
             wselected[w]=1;
             std::swap(right[bd.r + tmp_idx], right[bd.r + bd.right_len]);
-            if (g1_has_syms && disable_g1[w] != -1 && matched_g1[disable_g1[w]] == ACTIVE) {
+            if (g1_has_syms && disable_g1[w] != -1 && matched_g1[disable_g1[w]] == MATCHED) {
                 g1_pruned++;
                 continue;
             }
-            if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] > w) {
-                g0_pruned++;
-            }
             matched_g1[w] = MATCHED;
-            matched_g0[v] = w;
 
 #ifdef DEBUG
             cout<<"v= "<<v<<" w= "<<w<<endl;
@@ -664,7 +683,9 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
             auto new_domains = rewardfeed(domains,bd_idx,current, g0_matched, g1_matched, left, right, V, Q[v], g0, g1, v, w,
                                           arguments.directed || arguments.edge_labelled);
             dl++;
-            solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, new_domains, left, right, matching_size_goal, matched_g0, matched_g1, disable_g0, disable_g1);
+            solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, new_domains, left, right,
+                           matching_size_goal, matched_g0, matched_g1, disable_g0, disable_g1);
+            matched_g1[w] = ACTIVE;
             while(current.size() > cur_len) {
                 VtxPair pr = current.back();
                 current.pop_back();
@@ -677,14 +698,15 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
 
     if (bd.left_len == 0)
         remove_bidomain(domains, bd_idx);
-    matched_g0[v] = G0_DISCARD;
-    solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal, matched_g0, matched_g1, disable_g0, disable_g1);
-    matched_g0[v] = G0_ACTIVE;
+    matched_g0[v] = DISCARD;
+    solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal,
+                   matched_g0, matched_g1, disable_g0, disable_g1);
+    matched_g0[v] = ACTIVE;
 }
 
-void solve1(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
-           vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
-           vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal)
+void solve_without_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
+                       vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
+                       vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal)
 {
     if (abort_due_to_timeout) {
         return;
@@ -751,7 +773,8 @@ void solve1(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<
         auto new_domains = rewardfeed(domains,bd_idx,current, g0_matched, g1_matched, left, right, V, Q[v], g0, g1, v, w,
                                       arguments.directed || arguments.edge_labelled);
         dl++;
-        solve1(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, new_domains, left, right, matching_size_goal);
+        solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, new_domains, left, right,
+                          matching_size_goal);
         while(current.size() > cur_len) {
             VtxPair pr = current.back();
             current.pop_back();
@@ -762,7 +785,8 @@ void solve1(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<
     bd.right_len++;
     if (bd.left_len == 0)
         remove_bidomain(domains, bd_idx);
-    solve1(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal);
+    solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right,
+                      matching_size_goal);
 }
 
 double DENSITY = 0.1;
@@ -793,8 +817,8 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
     vector<int> disable_g0 (g0.n, -1);
     vector<int> disable_g1 (g1.n, -1);
     auto sym_calc_start = std::chrono::steady_clock::now();
-    g0_n_syms = findVerticesWithCommonNeighborsAdjmat(g0, disable_g0);
-    g1_n_syms = findVerticesWithCommonNeighborsAdjmat(g1, disable_g1);
+    g0_n_syms = findVerticesWithCommonNeighbors(g0, disable_g0);
+    g1_n_syms = findVerticesWithCommonNeighborsRev(g1, disable_g1);
     sym_calc_duration = std::chrono::steady_clock::now() - sym_calc_start;
     if (g0_n_syms > 0) {
         g0_has_syms = true;
@@ -829,9 +853,10 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
             auto right_copy = right;
             auto domains_copy = domains;
             vector<VtxPair> current;
-            vector<int> matched_g0 (g0.n, G0_ACTIVE);
+            vector<MatchingState> matched_g0 (g0.n, ACTIVE);
             vector<MatchingState> matched_g1 (g1.n, ACTIVE);
-            solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains_copy, left_copy, right_copy, goal, matched_g0, matched_g1, disable_g0, disable_g1);
+            solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains_copy, left_copy,
+                           right_copy, goal, matched_g0, matched_g1, disable_g0, disable_g1);
             if (incumbent.size() == goal || abort_due_to_timeout) break;
             if (!arguments.quiet) cout << "Upper bound: " << goal-1 << std::endl;
         }
@@ -839,14 +864,15 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
     } else {
         vector<VtxPair> current;
         if (!g0_has_syms && !g1_has_syms) {
-            solve1(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
+            solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
         } else {
             if (g0.density > DENSITY || g1.density > DENSITY) {
-                vector<int> matched_g0 (g0.n, G0_ACTIVE);
+                vector<MatchingState> matched_g0 (g0.n, ACTIVE);
                 vector<MatchingState> matched_g1 (g1.n, ACTIVE);
-                solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1, matched_g0, matched_g1, disable_g0, disable_g1);
+                solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1,
+                               matched_g0, matched_g1, disable_g0, disable_g1);
             } else {
-                solve1(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
+                solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
             }
 
         }
