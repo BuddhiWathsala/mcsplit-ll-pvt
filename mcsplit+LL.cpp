@@ -866,14 +866,10 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
         if (!g0_has_syms && !g1_has_syms) {
             solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
         } else {
-            if (g0.density > DENSITY || g1.density > DENSITY) {
-                vector<MatchingState> matched_g0 (g0.n, ACTIVE);
-                vector<MatchingState> matched_g1 (g1.n, ACTIVE);
-                solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1,
-                               matched_g0, matched_g1, disable_g0, disable_g1);
-            } else {
-                solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
-            }
+            vector<MatchingState> matched_g0 (g0.n, ACTIVE);
+            vector<MatchingState> matched_g1 (g1.n, ACTIVE);
+            solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1,
+                           matched_g0, matched_g1, disable_g0, disable_g1);
 
         }
 
