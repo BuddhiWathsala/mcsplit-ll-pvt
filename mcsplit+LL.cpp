@@ -866,7 +866,7 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
         if (!g0_has_syms && !g1_has_syms) {
             solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
         } else {
-            if (g0.isolatedPercentage > ISOLATED_N_PERCENTAGE || g1.isolatedPercentage > ISOLATED_N_PERCENTAGE) {
+            if (g0.isolatedPercentage > ISOLATED_N_PERCENTAGE || g1.isolatedPercentage > ISOLATED_N_PERCENTAGE || g0_n_syms == 0) {
                 solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
             } else {
                 vector<MatchingState> matched_g0 (g0.n, ACTIVE);
