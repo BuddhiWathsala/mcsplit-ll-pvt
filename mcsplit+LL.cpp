@@ -533,13 +533,14 @@ void remove_bidomain(vector<Bidomain>& domains, int idx) {
     domains[idx] = domains[domains.size()-1];
     domains.pop_back();
 }
+
+std::vector<int>  G1SymmetryClasses;
 int findVerticesWithCommonNeighbors(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
     neighborhoodGroups.reserve(graph.n);
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t positive_hash = 1;
         size_t negative_hash = 1;
-        vector<int> t;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
             if (graph.adjmat[v][u]) {
                 positive_hash *= PRIMES[u];
@@ -573,7 +574,6 @@ int findVerticesWithCommonNeighborsRev(const Graph& graph, vector<int> &disable)
     for (unsigned int v = 0; v < (unsigned int)graph.n; ++v) {
         size_t positive_hash = 1;
         size_t negative_hash = 1;
-        vector<int> t;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
             if (graph.adjmat[v][u]) {
                 positive_hash *= PRIMES[u];
@@ -588,6 +588,7 @@ int findVerticesWithCommonNeighborsRev(const Graph& graph, vector<int> &disable)
     }
 
     int n_syms = 0;
+    int sym_identity = -1;
     for (const auto& batch : neighborhoodGroups) {
         if (batch.second.size() > 1) {
             size_t n = batch.second.size();
@@ -596,16 +597,33 @@ int findVerticesWithCommonNeighborsRev(const Graph& graph, vector<int> &disable)
                 n_syms++;
                 disable[batch.second[i]] = w;
             }
+            ++sym_identity;
+            for (size_t i=0; i < n; ++i) {
+                G1SymmetryClasses[batch.second[i]] = sym_identity;
+            }
         }
     }
 
     return n_syms;
 }
 
+bool breakG1Sym(const vector<int>& arr, int start_idx, int len, int w) {
+    int w_sym_identity = G1SymmetryClasses[w];
+    for (int i=0; i < len; i++) {
+        if (G1SymmetryClasses[arr[start_idx + i]] == w_sym_identity && arr[start_idx + i] < w) {
+            return true;
+        }
+    }
+    return false;
+}
+
+const int G0_DISCARD = -1;
+const int G0_ACTIVE = -2;
+
 void solve_with_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
                     vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
                     vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal,
-                    vector<MatchingState> &matched_g0, vector<MatchingState> &matched_g1,
+                    vector<int> &matched_g0, vector<MatchingState> &matched_g1,
                     vector<int> &disable_g0, vector<int> &disable_g1)
 {
     if (abort_due_to_timeout) {
@@ -651,7 +669,7 @@ void solve_with_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector
     v = left[bd.l + tmp_idx];
     remove_vtx_from_array(left, bd.l, bd.left_len, tmp_idx);
 
-    if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == DISCARD) {
+    if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == G0_DISCARD) {
         g0_pruned++;
     } else {
         // Try assigning v to each vertex w in the colour class beginning at bd.r, in turn
@@ -667,8 +685,18 @@ void solve_with_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector
                 g1_pruned++;
                 continue;
             }
-            matched_g1[w] = MATCHED;
+            if (G1SymmetryClasses[w] != -1 && breakG1Sym(right, bd.r, bd.right_len+1, w)) {
+                g1_pruned++;
+                continue;
+            }
+            if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] > w) {
+                g0_pruned++;
+                continue;
+            }
 
+
+            matched_g1[w] = MATCHED;
+            matched_g0[v] = w;
 #ifdef DEBUG
             cout<<"v= "<<v<<" w= "<<w<<endl;
      unsigned int m;
@@ -698,10 +726,10 @@ void solve_with_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector
 
     if (bd.left_len == 0)
         remove_bidomain(domains, bd_idx);
-    matched_g0[v] = DISCARD;
+    matched_g0[v] = G0_DISCARD;
     solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal,
                    matched_g0, matched_g1, disable_g0, disable_g1);
-    matched_g0[v] = ACTIVE;
+    matched_g0[v] = G0_ACTIVE;
 }
 
 void solve_without_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
@@ -816,6 +844,7 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
 
     vector<int> disable_g0 (g0.n, -1);
     vector<int> disable_g1 (g1.n, -1);
+    G1SymmetryClasses = std::vector(g1.n, -1);
     auto sym_calc_start = std::chrono::steady_clock::now();
     g0_n_syms = findVerticesWithCommonNeighbors(g0, disable_g0);
     g1_n_syms = findVerticesWithCommonNeighborsRev(g1, disable_g1);
@@ -853,7 +882,7 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
             auto right_copy = right;
             auto domains_copy = domains;
             vector<VtxPair> current;
-            vector<MatchingState> matched_g0 (g0.n, ACTIVE);
+            vector<int> matched_g0 (g0.n, ACTIVE);
             vector<MatchingState> matched_g1 (g1.n, ACTIVE);
             solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains_copy, left_copy,
                            right_copy, goal, matched_g0, matched_g1, disable_g0, disable_g1);
@@ -866,14 +895,10 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
         if (!g0_has_syms && !g1_has_syms) {
             solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
         } else {
-            if (g0.isolatedPercentage > ISOLATED_N_PERCENTAGE || g1.isolatedPercentage > ISOLATED_N_PERCENTAGE || g0_n_syms == 0) {
-                solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
-            } else {
-                vector<MatchingState> matched_g0 (g0.n, ACTIVE);
-                vector<MatchingState> matched_g1 (g1.n, ACTIVE);
-                solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1,
-                               matched_g0, matched_g1, disable_g0, disable_g1);
-            }
+            vector<int> matched_g0 (g0.n, ACTIVE);
+            vector<MatchingState> matched_g1 (g1.n, ACTIVE);
+            solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1,
+                           matched_g0, matched_g1, disable_g0, disable_g1);
         }
     }
 
