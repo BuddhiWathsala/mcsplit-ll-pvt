@@ -535,6 +535,7 @@ void remove_bidomain(vector<Bidomain>& domains, int idx) {
 }
 
 std::vector<int>  G1SymmetryClasses;
+unsigned int SELF_LOOP_VAL = 2147483648;
 int findVerticesWithCommonNeighbors(const Graph& graph, vector<int> &disable) {
     std::unordered_map<size_t, std::vector<unsigned int>> neighborhoodGroups;
     neighborhoodGroups.reserve(graph.n);
@@ -542,13 +543,17 @@ int findVerticesWithCommonNeighbors(const Graph& graph, vector<int> &disable) {
         size_t positive_hash = 1;
         size_t negative_hash = 1;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
-            if (graph.adjmat[v][u]) {
+            if (v != u && graph.adjmat[v][u]) {
                 positive_hash *= PRIMES[u];
-                negative_hash *= PRIMES[u];;
+                negative_hash *= PRIMES[u];
             }
             if (v == u) {
                 positive_hash *= PRIMES[u];;
             }
+        }
+        if (graph.label[v] == SELF_LOOP_VAL) {
+            positive_hash *= PRIMES[graph.n+1];
+            negative_hash *= PRIMES[graph.n+1];
         }
         neighborhoodGroups[positive_hash].push_back(v);
         neighborhoodGroups[negative_hash].push_back(v);
@@ -575,13 +580,17 @@ int findVerticesWithCommonNeighborsRev(const Graph& graph, vector<int> &disable)
         size_t positive_hash = 1;
         size_t negative_hash = 1;
         for (unsigned int u = 0; u < (unsigned int)graph.n; ++u) {
-            if (graph.adjmat[v][u]) {
+            if (v != u && graph.adjmat[v][u]) {
                 positive_hash *= PRIMES[u];
                 negative_hash *= PRIMES[u];;
             }
             if (v == u) {
                 positive_hash *= PRIMES[u];;
             }
+        }
+        if (graph.label[v] == SELF_LOOP_VAL) {
+            positive_hash *= PRIMES[graph.n+1];
+            negative_hash *= PRIMES[graph.n+1];
         }
         neighborhoodGroups[positive_hash].push_back(v);
         neighborhoodGroups[negative_hash].push_back(v);
