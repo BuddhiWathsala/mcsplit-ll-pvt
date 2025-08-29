@@ -519,11 +519,6 @@ int selectW_index(const vector<int> &arr, const vector<gtype> &rgrade, int start
     return idx;
 }
 
-enum MatchingState {
-    ACTIVE,  // 0
-    MATCHED, // 1
-    DISCARD  // 2
-};
 
 void remove_vtx_from_array(vector<int> &arr, int start_idx, int &len, int remove_idx) {
     len--;
@@ -626,13 +621,14 @@ bool breakG1Sym(const vector<int>& arr, int start_idx, int len, int w) {
     return false;
 }
 
-const int G0_DISCARD = -1;
-const int G0_ACTIVE = -2;
+const int DISCARD = -1;
+const int ACTIVE = -2;
+const int MATCHED = -3;
 
 void solve_with_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
                     vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
                     vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal,
-                    vector<int> &matched_g0, vector<MatchingState> &matched_g1,
+                    vector<int> &matched_g0, vector<int> &matched_g1,
                     vector<int> &disable_g0, vector<int> &disable_g1)
 {
     if (abort_due_to_timeout) {
@@ -678,7 +674,7 @@ void solve_with_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector
     v = left[bd.l + tmp_idx];
     remove_vtx_from_array(left, bd.l, bd.left_len, tmp_idx);
 
-    if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == G0_DISCARD) {
+    if (g0_has_syms && disable_g0[v] != -1 && matched_g0[disable_g0[v]] == DISCARD) {
         g0_pruned++;
     } else {
         // Try assigning v to each vertex w in the colour class beginning at bd.r, in turn
@@ -735,10 +731,10 @@ void solve_with_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector
 
     if (bd.left_len == 0)
         remove_bidomain(domains, bd_idx);
-    matched_g0[v] = G0_DISCARD;
+    matched_g0[v] = DISCARD;
     solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal,
                    matched_g0, matched_g1, disable_g0, disable_g1);
-    matched_g0[v] = G0_ACTIVE;
+    matched_g0[v] = ACTIVE;
 }
 
 void solve_without_sym(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
@@ -892,7 +888,7 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
             auto domains_copy = domains;
             vector<VtxPair> current;
             vector<int> matched_g0 (g0.n, ACTIVE);
-            vector<MatchingState> matched_g1 (g1.n, ACTIVE);
+            vector<int> matched_g1 (g1.n, ACTIVE);
             solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains_copy, left_copy,
                            right_copy, goal, matched_g0, matched_g1, disable_g0, disable_g1);
             if (incumbent.size() == goal || abort_due_to_timeout) break;
@@ -905,7 +901,7 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
             solve_without_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
         } else {
             vector<int> matched_g0 (g0.n, ACTIVE);
-            vector<MatchingState> matched_g1 (g1.n, ACTIVE);
+            vector<int> matched_g1 (g1.n, ACTIVE);
             solve_with_sym(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1,
                            matched_g0, matched_g1, disable_g0, disable_g1);
         }
