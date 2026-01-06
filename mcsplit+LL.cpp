@@ -40,6 +40,7 @@
 #include <string.h>
 #include <math.h>
 #include <assert.h>
+#include <cstdint>
 #define VSCORE
 //#define DEBUG
 #define Best
@@ -197,6 +198,8 @@ unsigned long long cut_branches = 0;
 unsigned long long best_count = 0;
 unsigned long long calls_for_optimal = 0;
 std::chrono::duration<double> duration;
+uint64_t mcs_count = 0;
+//uint64_t matched_leaves = 0;
 
 /*******************************************************************************
                                  MCS functions
@@ -223,6 +226,15 @@ struct Bidomain {
             right_len (right_len),
             is_adjacent (is_adjacent) { };
 };
+
+uint64_t factorial(size_t n) {
+    uint64_t result = 1;
+    if (n == 2) return 2;
+    for (size_t i = 2; i <= n; i++) {
+        result *= i;
+    }
+    return result;
+}
 
 void show(const vector<VtxPair>& current, const vector<Bidomain> &domains,
         const vector<int>& left, const vector<int>& right)
@@ -352,11 +364,33 @@ int remove_matched_vertex(vector<int> &arr, int start, int len, const vector<int
     return p;
 }
 
+size_t size_bound = 5;
+char indicators[8] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+void sortByValue(std::vector<VtxPair>& arr) {
+    std::sort(arr.begin(), arr.end(), [](const VtxPair& a, const VtxPair& b) {
+        return a.v < b.v;
+    });
+}
+
+int counter = 0;
+
+void print_sol(const vector<VtxPair>& solution) {
+    if (solution.size() < size_bound) return;
+    vector<VtxPair> solution_ = solution;
+    // sortByValue(solution_);
+    for (const VtxPair& pair : solution_) {
+        //        cout << "(" << pair.v << ", " << indicators[pair.w] << "), ";
+        cout << "(" << pair.v << ", " << pair.w << "), ";
+    }
+    cout << endl;
+    cout << counter << endl;
+}
+
 // multiway is for directed and/or labelled graphs
 vector<Bidomain> rewardfeed(const vector<Bidomain> & d,int bd_idx,vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
         vector<int> & left, vector<int> & right,vector<gtype> & lgrade,vector<gtype> & rgrade,
         const Graph & g0, const Graph & g1, int v, int w,
-        bool multiway)
+        bool multiway, uint64_t &matched_leaves)
 {//每个domain均分成2个new_domain分别是与当前对应点相连或者不相连
 //    assert(g0_matched[v] == 0);
 //    assert(g1_matched[w] == 0);
@@ -364,6 +398,7 @@ vector<Bidomain> rewardfeed(const vector<Bidomain> & d,int bd_idx,vector<VtxPair
     g0_matched[v] = 1;
     g1_matched[w] = 1;
 
+    print_sol(current);
     int leaves_match_size = 0, v_leaf, w_leaf;
     for(unsigned int i = 0, j = 0; i < g0.leaves[v].size() && j < g1.leaves[w].size(); ) {
         if(g0.leaves[v][i].first < g1.leaves[w][j].first) i++;
@@ -371,21 +406,30 @@ vector<Bidomain> rewardfeed(const vector<Bidomain> & d,int bd_idx,vector<VtxPair
         else {
             const vector<int> &leaf0 = g0.leaves[v][i].second;
             const vector<int> &leaf1 = g1.leaves[w][j].second;
+            int common_matches = 0;
+            bool matched = false;
             for(unsigned int p = 0, q = 0; p < leaf0.size() && q < leaf1.size(); ) {
                 if(g0_matched[leaf0[p]]) p++;
                 else if(g1_matched[leaf1[q]]) q++;
                 else {
                     v_leaf = leaf0[p], w_leaf = leaf1[q];
                     p++, q++;
+                    common_matches++;
                     current.push_back(VtxPair(v_leaf, w_leaf));
                     g0_matched[v_leaf] = 1;
                     g1_matched[w_leaf] = 1;
                     leaves_match_size++;
+                    matched = true;
                 }
+            }
+            if (matched) {
+                matched_leaves += factorial(leaf0.size()) * factorial(leaf1.size())/ factorial(common_matches) - 1;
+                // cout << endl;
             }
             i++, j++;
         }
     }
+
 
 
     vector<Bidomain> new_d;
@@ -519,20 +563,44 @@ void remove_bidomain(vector<Bidomain>& domains, int idx) {
     domains.pop_back();
 }
 
+void print_sol(vector<VtxPair> & solution) {
+    for (VtxPair &pair : solution) {
+        cout << "(" << pair.v << ", " << pair.w << "), ";
+    }
+    cout << endl;
+}
+
+
+
 void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<gtype>> &Q, vector<VtxPair> & incumbent,
         vector<VtxPair> & current, vector<int> &g0_matched, vector<int> &g1_matched,
-        vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal)
+        vector<Bidomain> & domains, vector<int> & left, vector<int> & right, unsigned int matching_size_goal, uint64_t matched_leaves)
 {
     if (abort_due_to_timeout) {
         return;
     }
 
+    size_t current_size = current.size();
+    size_t incumbent_size = incumbent.size();
+    ++counter;
+    int counter_ = counter;
     if (current.size() > incumbent.size()) {//incumbent 现任的
         incumbent = current;
         best_count = cut_branches + 1;
         calls_for_optimal = nodes;
         duration = std::chrono::steady_clock::now() - START;
+//        if (current_size == 5) {
+//            cout << matched_leaves << endl;
+//            print_sol(current);
+//        }
+        mcs_count = 1;
 //        if (!arguments.quiet) cout << "Incumbent size: " << incumbent.size() << endl;
+    }  else if (current_size == incumbent_size) {
+//        if (current_size == 5) {
+//            cout << matched_leaves << endl;
+//            print_sol(current);
+//        }
+        mcs_count++;
     }
 //    if (abort_due_to_timeout)
 //        return;
@@ -542,12 +610,19 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
 
 
     unsigned int bound = current.size() + calc_bound(domains);//计算相连和不相连同构数的最大可能加上当前已经同构的点数
-    if (bound <= incumbent.size() || bound < matching_size_goal) {//剪枝
+    if (bound < incumbent.size() || bound < matching_size_goal) {//剪枝
         cut_branches++;
+        if (current_size == incumbent.size() && matched_leaves > 0) {
+            mcs_count += matched_leaves;
+        }
         return;
     }
-    if (arguments.big_first && incumbent.size() == matching_size_goal)
+    if (arguments.big_first && incumbent.size() == matching_size_goal) {
+        if (current_size == incumbent.size() && matched_leaves > 0) {
+            mcs_count += matched_leaves;
+        }
         return;
+    }
 
 
 
@@ -556,7 +631,11 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
       //  cout<<endl;
       //  cout<<endl;
       //  cout<<"big"<<endl;
-        return;}
+        if (current_size == incumbent.size() && matched_leaves > 0) {
+            mcs_count += matched_leaves;
+        }
+        return;
+    }
     Bidomain &bd = domains[bd_idx];
 
     int v, w;
@@ -585,10 +664,11 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
      cout<<endl;
 #endif
         unsigned int cur_len = current.size();
+        uint64_t matched_leaves_ = matched_leaves;
         auto new_domains = rewardfeed(domains,bd_idx,current, g0_matched, g1_matched, left, right, V, Q[v], g0, g1, v, w,
-                arguments.directed || arguments.edge_labelled);
+                arguments.directed || arguments.edge_labelled, matched_leaves_);
         dl++;
-        solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, new_domains, left, right, matching_size_goal);
+        solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, new_domains, left, right, matching_size_goal, matched_leaves_);
         while(current.size() > cur_len) {
             VtxPair pr = current.back();
             current.pop_back();
@@ -599,7 +679,7 @@ void solve(const Graph & g0, const Graph & g1, vector<gtype> &V, vector<vector<g
     bd.right_len++;
     if (bd.left_len == 0)
         remove_bidomain(domains, bd_idx);
-    solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal);
+    solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, matching_size_goal, matched_leaves);
 }
 
 vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
@@ -652,14 +732,14 @@ vector<VtxPair> mcs(const Graph & g0, const Graph & g1) {
             auto right_copy = right;
             auto domains_copy = domains;
             vector<VtxPair> current;
-            solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains_copy, left_copy, right_copy, goal);
+            solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains_copy, left_copy, right_copy, goal, 0);
             if (incumbent.size() == goal || abort_due_to_timeout) break;
             if (!arguments.quiet) cout << "Upper bound: " << goal-1 << std::endl;
         }
 
     } else {
         vector<VtxPair> current;
-        solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1);
+        solve(g0, g1, V, Q, incumbent, current, g0_matched, g1_matched, domains, left, right, 1, 0);
     }
 
     return incumbent;
@@ -848,6 +928,6 @@ int main(int argc, char** argv) {
 //         cout << "TIMEOUT" << endl;
     cout << solution.size() << ", " << check_sol(g0, g1, solution) << ", " << duration.count() << ", "
          << time_elapsed.count() << ", " << nodes << ", " << calls_for_optimal << ", " << cut_branches << ", " <<
-         aborted << endl;
+        mcs_count << ", " << aborted << endl;
 }
 
